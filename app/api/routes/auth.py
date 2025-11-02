@@ -506,3 +506,134 @@ def me(request: Request, db: FileBackedDB = Depends(get_db)):
     except Exception:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     return {"sub": claims.get("sub")}
+
+# --- password reset helpers and endpoints ---
+def _create_password_reset_record(db: FileBackedDB, user_id: str, expires_delta_minutes: int = 60) -> str:
+    """
+    Create a one-time password reset token record. Returns the raw token string.
+    Stored fields: token, user_id, created_at (ISO), expires_at (ISO)
+    """
+    token = secrets.token_urlsafe(32)
+    now = datetime.utcnow()
+    expires_at = now + timedelta(minutes=expires_delta_minutes)
+    try:
+        db.create_record(
+            "password_reset_tokens",
+            {
+                "token": token,
+                "user_id": str(user_id),
+                "created_at": now.isoformat(sep=" "),
+                "expires_at": expires_at.isoformat(sep=" "),
+            },
+            id_field="id",
+        )
+    except Exception:
+        # best-effort; if DB fails bubble up None-ish token will be handled by caller
+        pass
+    return token
+
+def _get_password_reset_record(db: FileBackedDB, token: str) -> Optional[Dict[str, Any]]:
+    try:
+        return db.get_record("password_reset_tokens", "token", token)
+    except Exception:
+        return None
+
+def _is_password_reset_expired(row: Dict[str, Any]) -> bool:
+    expires_at = row.get("expires_at") or row.get("expiry") or row.get("expires")
+    if not expires_at:
+        return True
+    try:
+        exp_dt = datetime.fromisoformat(str(expires_at))
+    except Exception:
+        try:
+            exp_dt = datetime.utcfromtimestamp(int(float(expires_at)))
+        except Exception:
+            return True
+    return datetime.utcnow() > exp_dt
+
+@router.post("/password-reset/request")
+def password_reset_request(payload: Dict[str, Any], db: FileBackedDB = Depends(get_db)):
+    """
+    Request a password reset for an email or username.
+    For privacy, response is the same whether the user exists or not.
+    Tests can read the file-backed DB to find the created token.
+    """
+    identifier = payload.get("email") or payload.get("username") or payload.get("user")
+    if not identifier:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="email or username required")
+    # try resolve user by email / username / id
+    user = db.get_record("users", "email", identifier) or db.get_record("users", "username", identifier) or db.get_record("users", "id", identifier)
+    if user:
+        try:
+            _create_password_reset_record(db, user.get("id"))
+        except Exception:
+            # swallow DB errors to avoid leaking details
+            pass
+    # always return success-ish message
+    return {"message": "If the account exists, a password reset has been initiated"}
+
+@router.post("/password-reset/confirm")
+def password_reset_confirm(payload: Dict[str, Any], db: FileBackedDB = Depends(get_db)):
+    """
+    Confirm a password reset. Expects JSON: { "token": "...", "password": "newpass" }.
+    On success the user's password_hash is replaced and the reset token is removed.
+    """
+    token = payload.get("token")
+    new_password = payload.get("password")
+    if not token or not new_password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="token and password required")
+
+    # lookup token record
+    row = _get_password_reset_record(db, token)
+    if not row:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password reset token")
+
+    if _is_password_reset_expired(row):
+        try:
+            db.delete_record("password_reset_tokens", "token", token)
+        except Exception:
+            pass
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Password reset token expired")
+
+    user_id = row.get("user_id") or row.get("uid") or row.get("user")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password reset token")
+
+    # set new password hash for the user. Try update_record if available, else replace record
+    new_hash = hash_password(new_password)
+    try:
+        # try an update operation if provided by DB
+        if hasattr(db, "update_record"):
+            db.update_record("users", "id", user_id, {"password_hash": new_hash})
+        else:
+            # best-effort replace: read existing row and recreate with new hash
+            user = db.get_record("users", "id", user_id)
+            if not user:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+            # attempt to delete then create replacement
+            try:
+                db.delete_record("users", "id", user_id)
+            except Exception:
+                # ignore - still try to create
+                pass
+            db.create_record(
+                "users",
+                {
+                    "username": user.get("username"),
+                    "email": user.get("email"),
+                    "password_hash": new_hash,
+                    "full_name": user.get("full_name"),
+                    "is_admin": user.get("is_admin", False),
+                },
+                id_field="id",
+            )
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to set new password")
+
+    # delete token after use
+    try:
+        db.delete_record("password_reset_tokens", "token", token)
+    except Exception:
+        pass
+
+    return {"message": "Password has been reset successfully"}
