@@ -16,6 +16,9 @@ from app.api.routes import wishlist as wishlist_routes
 from app.api.routes import reviews as reviews_routes
 from app.api.routes import cart as cart_routes
 from app.api.deps import oauth2_scheme
+from app.middleware.cors_config import configure_cors
+from app.middleware.security_headers import add_security_headers
+
 
 logger = logging.getLogger("uvicorn.error")
 @asynccontextmanager
@@ -48,15 +51,8 @@ async def lifespan(app: FastAPI):
     # --- shutdown logic (if needed) ---
     logger.info("Shutting down Decor Store API")
 app = FastAPI(title="Decor Store API", version="0.1.0", lifespan=lifespan)
-
-# CORS - permissive for development. Lock this down in production.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # change in prod
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+configure_cors(app)
+add_security_headers(app)
 
 # Mount a static directory if present (for images / assets)
 if os.path.isdir("static"):
