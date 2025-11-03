@@ -18,7 +18,7 @@ from app.api.routes import cart as cart_routes
 from app.api.deps import oauth2_scheme
 from app.middleware.cors_config import configure_cors
 from app.middleware.security_headers import add_security_headers
-
+from app.middleware.limits import LimitsMiddleware
 
 logger = logging.getLogger("uvicorn.error")
 @asynccontextmanager
@@ -68,6 +68,8 @@ app.include_router(wishlist_routes.router)
 app.include_router(reviews_routes.router)
 app.include_router(cart_routes.router)
 
+# add middleware registration (import and add_middleware)
+app.add_middleware(LimitsMiddleware)
 
 @app.get("/", tags=["root"])
 async def root():
