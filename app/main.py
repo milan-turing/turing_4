@@ -19,6 +19,7 @@ from app.api.deps import oauth2_scheme
 from app.middleware.cors_config import configure_cors
 from app.middleware.security_headers import add_security_headers
 from app.middleware.limits import LimitsMiddleware
+from app.middleware.trace_metrics import TraceMetricsMiddleware, metrics_router
 
 logger = logging.getLogger("uvicorn.error")
 @asynccontextmanager
@@ -54,6 +55,9 @@ app = FastAPI(title="Decor Store API", version="0.1.0", lifespan=lifespan)
 configure_cors(app)
 add_security_headers(app)
 
+# register trace/metrics middleware (keep it early so it wraps other handlers)
+app.add_middleware(TraceMetricsMiddleware)
+
 # Mount a static directory if present (for images / assets)
 if os.path.isdir("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -67,6 +71,9 @@ app.include_router(order_routes.router)
 app.include_router(wishlist_routes.router)
 app.include_router(reviews_routes.router)
 app.include_router(cart_routes.router)
+
+# include metrics router (internal endpoints)
+app.include_router(metrics_router)
 
 # add middleware registration (import and add_middleware)
 app.add_middleware(LimitsMiddleware)
