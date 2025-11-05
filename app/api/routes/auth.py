@@ -361,7 +361,7 @@ async def revoke(request: Request, db: FileBackedDB = Depends(get_db)):
                 # If a JSON body was provided that includes token_type but no token-like field,
                 # surface a 422 to match test expectations for missing required token in JSON.
                 if token is None and "token_type" in body and not any(k in body for k in ("token", "access_token", "refresh_token")):
-                    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="token field required in JSON body")
+                    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="token field required in JSON body")
     except HTTPException:
         # re-raise validation-like error
         raise
