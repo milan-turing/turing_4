@@ -23,3 +23,10 @@ def test_login_form_sets_cookie(client, temp_user):
                        data={"username": temp_user["username"], "password": temp_user["password"]})
     assert resp.status_code == 200
     assert temp_user["username"] == temp_user["username"]
+
+
+def test_register_validation_requires_fields(client):
+    # missing password should trigger pydantic validation -> 422
+    payload = {"username": "bob", "email": "bob@example.com"}
+    resp = client.post("/api/auth/register", json=payload)
+    assert resp.status_code == 422

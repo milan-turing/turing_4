@@ -297,11 +297,11 @@ def test_token_revocation_default_type(client, temp_user):
 
 def test_revoke_refresh_token_prevents_refresh(client):
     # register and get initial tokens
-    payload = {"username": "revoker", "email": "revoker@example.com", "password": "pwrev"}
+    payload = {"username": "revoker", "email": "revoker@example.com", "password": "pwrev123"}
     r = client.post("/api/auth/register", json=payload)
     assert r.status_code == 200, r.text
 
-    r2 = client.post("/api/auth/token", data={"username": "revoker", "password": "pwrev"})
+    r2 = client.post("/api/auth/token", data={"username": "revoker", "password": "pwrev123"})
     assert r2.status_code == 200, r2.text
     td = r2.json()
     old_refresh = td.get("refresh_token")

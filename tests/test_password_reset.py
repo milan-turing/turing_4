@@ -56,5 +56,5 @@ def test_password_reset_token_expired_or_invalid(client, temp_user):
     assert resp2.status_code == 401
 
     # invalid token should also fail
-    resp3 = client.post("/api/auth/password-reset/confirm", json={"token": "no-such-token", "password": "x"})
+    resp3 = client.post("/api/auth/password-reset/confirm", json={"token": "no-such-token", "password": "x12345678"})
     assert resp3.status_code == 401

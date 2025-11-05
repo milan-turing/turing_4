@@ -44,7 +44,7 @@ def test_delete_wishlist_item_and_permissions(temp_user, client, auth_header):
     # create another user (user2)
     other = file_db.create_record(
         "users",
-        {"username": f"u2_{uuid.uuid4().hex[:6]}", "email": f"u2@example.test"},
+        {"username": f"u2_{uuid.uuid4().hex[:6]}", "email": f"u2@example.com"},
         id_field="id",
     )
     user2_id = other["id"]

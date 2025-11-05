@@ -75,7 +75,7 @@ def register_and_token(client):
     Register a user via the API and return the access token.
     Usage: token = register_and_token(username="u", email=None, password="pw")
     """
-    def _fn(username="user", email=None, password="pass"):
+    def _fn(username="user", email=None, password="pass123"):
         if email is None:
             email = f"{username}@example.com"
         r = client.post("/api/auth/register", json={"username": username, "email": email, "password": password})
@@ -159,7 +159,7 @@ def temp_user():
     hashed = hash_password(password)
     user = app_database.db.create_record(
         "users",
-        {"username": f"user_{os.urandom(4).hex()}", "email": f"user_{os.urandom(4).hex()}@example.test", "password_hash": hashed, "is_admin": False},
+        {"username": f"user_{os.urandom(4).hex()}", "email": f"user_{os.urandom(4).hex()}@example.com", "password_hash": hashed, "is_admin": False},
         id_field="id",
     )
     yield {"row": user, "password": password, "username": user.get("username"), "email": user.get("email")}

@@ -27,3 +27,15 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     refresh_token: Optional[str] = None
+
+
+# --- new request models for endpoints that previously accepted plain dicts ---
+class PasswordResetRequest(BaseModel):
+    email: Optional[EmailStr] = None
+    username: Optional[str] = None
+    user: Optional[str] = None
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    password: str = Field(..., min_length=6)

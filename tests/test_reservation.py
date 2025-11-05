@@ -3,7 +3,7 @@ from app.database import db as file_db
 from fastapi.testclient import TestClient
 
 
-def register_and_token(client: TestClient, username="res_user", email=None, password="pass"):
+def register_and_token(client: TestClient, username="res_user", email=None, password="pass123"):
     if email is None:
         email = f"{username}@example.com"
     r = client.post("/api/auth/register", json={"username": username, "email": email, "password": password})

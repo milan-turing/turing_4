@@ -11,7 +11,7 @@ from jose import jwt
 from jose.exceptions import JWTError
 
 from app.api.deps import get_db, JWT_SECRET, JWT_ALGORITHM
-from app.api.schemas.user import TokenResponse, UserOut
+from app.api.schemas.user import TokenResponse, UserOut, UserCreate, PasswordResetRequest, PasswordResetConfirm
 from app.database import FileBackedDB
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -236,18 +236,18 @@ def login_form_alias(response: Response, username: str = Form(...), password: st
 
 
 @router.post("/register", response_model=UserOut, status_code=200)
-def register(user: Dict[str, Any], db: FileBackedDB = Depends(get_db)):
+def register(user: UserCreate, db: FileBackedDB = Depends(get_db)):
     """
-    Minimal register endpoint (used occasionally by tests). Expects a dict with username/email/password.
+    Minimal register endpoint. Accepts a validated UserCreate model.
     Hashes the password and stores as 'password_hash'.
     """
-    username = user.get("username")
-    email = user.get("email")
-    password = user.get("password")
+    username = user.username
+    email = user.email
+    password = user.password
     if not username or not password or not email:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="username, email and password required")
     hashed = hash_password(password)
-    row = db.create_record("users", {"username": username, "email": email, "password_hash": hashed, "is_admin": user.get("is_admin", False), "full_name": user.get("full_name")}, id_field="id")
+    row = db.create_record("users", {"username": username, "email": email, "password_hash": hashed, "is_admin": False, "full_name": user.full_name}, id_field="id")
     # build a deterministic user output shape expected by tests/schemas
     user_out = {
         "id": row.get("id"),
@@ -552,13 +552,11 @@ def _is_password_reset_expired(row: Dict[str, Any]) -> bool:
     return datetime.utcnow() > exp_dt
 
 @router.post("/password-reset/request")
-def password_reset_request(payload: Dict[str, Any], db: FileBackedDB = Depends(get_db)):
+def password_reset_request(payload: PasswordResetRequest, db: FileBackedDB = Depends(get_db)):
     """
-    Request a password reset for an email or username.
-    For privacy, response is the same whether the user exists or not.
-    Tests can read the file-backed DB to find the created token.
+    Request a password reset. Uses PasswordResetRequest model.
     """
-    identifier = payload.get("email") or payload.get("username") or payload.get("user")
+    identifier = payload.email or payload.username or payload.user
     if not identifier:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="email or username required")
     # try resolve user by email / username / id
@@ -573,13 +571,12 @@ def password_reset_request(payload: Dict[str, Any], db: FileBackedDB = Depends(g
     return {"message": "If the account exists, a password reset has been initiated"}
 
 @router.post("/password-reset/confirm")
-def password_reset_confirm(payload: Dict[str, Any], db: FileBackedDB = Depends(get_db)):
+def password_reset_confirm(payload: PasswordResetConfirm, db: FileBackedDB = Depends(get_db)):
     """
-    Confirm a password reset. Expects JSON: { "token": "...", "password": "newpass" }.
-    On success the user's password_hash is replaced and the reset token is removed.
+    Confirm a password reset. Expects PasswordResetConfirm model.
     """
-    token = payload.get("token")
-    new_password = payload.get("password")
+    token = payload.token
+    new_password = payload.password
     if not token or not new_password:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="token and password required")
 

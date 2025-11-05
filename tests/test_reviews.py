@@ -42,7 +42,7 @@ def test_list_reviews_returns_all(temp_user, client, auth_header):
     # create another user
     other = file_db.create_record(
         "users",
-        {"username": f"u2_{uuid.uuid4().hex[:6]}", "email": f"u2@example.test"},
+        {"username": f"u2_{uuid.uuid4().hex[:6]}", "email": f"u2@example.com"},
         id_field="id",
     )
     user2_id = other["id"]
@@ -72,7 +72,7 @@ def test_delete_review_permissions(temp_user, client, auth_header):
     user1_id = user1["id"]
     other = file_db.create_record(
         "users",
-        {"username": f"u2_{uuid.uuid4().hex[:6]}", "email": f"u2@example.test"},
+        {"username": f"u2_{uuid.uuid4().hex[:6]}", "email": f"u2@example.com"},
         id_field="id",
     )
     user2_id = other["id"]
@@ -117,7 +117,7 @@ def test_reviews_summary_average_and_count(temp_user, client, auth_header):
     # create second user and review
     other = file_db.create_record(
         "users",
-        {"username": f"u2_{uuid.uuid4().hex[:6]}", "email": f"u2@example.test"},
+        {"username": f"u2_{uuid.uuid4().hex[:6]}", "email": f"u2@example.com"},
         id_field="id",
     )
     user2_id = other["id"]
