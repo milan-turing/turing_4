@@ -112,6 +112,29 @@ async def upload_product_image(product_id: str, file: UploadFile = File(...), db
     if not row:
         raise HTTPException(status_code=404, detail="Product not found")
 
+    # Basic validation: protect against filename injection and enforce content-type + extension
+    filename = getattr(file, "filename", "") or ""
+    # reject empty or obviously malicious filenames
+    if not filename:
+        raise HTTPException(status_code=400, detail="Missing filename")
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    if len(filename) > 120:
+        raise HTTPException(status_code=400, detail="Filename too long")
+
+    # validate extension
+    _, ext = os.path.splitext(filename)
+    ext = ext.lower()
+    allowed_exts = {".jpg", ".jpeg", ".png", ".webp"}
+    if ext not in allowed_exts:
+        raise HTTPException(status_code=400, detail="Unsupported file extension")
+
+    # validate content-type
+    allowed_mimes = {"image/jpeg", "image/png", "image/webp"}
+    content_type = getattr(file, "content_type", "") or ""
+    if content_type not in allowed_mimes:
+        raise HTTPException(status_code=400, detail="Unsupported content type")
+
     # ensure image dir exists
     image_dir = settings.image_dir
     # save file and generate thumbnails
